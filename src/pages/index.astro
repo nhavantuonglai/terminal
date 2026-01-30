@@ -1,0 +1,286 @@
+---
+import '../assets/style.css';
+---
+
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terminal Chat - Ẩn Danh</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  
+  <div class="terminal-container">
+    
+    <!-- Terminal Header -->
+    <div class="terminal-header">
+      <div class="terminal-title">
+        <div class="terminal-dots">
+          <div class="dot red"></div>
+          <div class="dot yellow"></div>
+          <div class="dot green"></div>
+        </div>
+        <span class="terminal-name" id="room-name">chat@global</span>
+      </div>
+      <div class="terminal-info" id="user-info">Đang kết nối...</div>
+    </div>
+
+    <!-- Terminal Output -->
+    <div class="terminal-output" id="terminal-output">
+      <div class="welcome-screen">
+        <h2>Global Anonymous Chat</h2>
+        <p>Chào mừng đến với chat ẩn danh toàn cầu<br>Giới hạn: Mỗi user chỉ được gửi tin nhắn mỗi 10 giây<br>Định dạng: YYYY MM DD, HH MM SS | IP: tin nhắn</p>
+      </div>
+    </div>
+
+    <!-- Terminal Input -->
+    <div class="terminal-input-wrapper">
+      <div class="terminal-input-container">
+        <span class="terminal-prompt">></span>
+        <input 
+          type="text" 
+          id="message-input" 
+          placeholder="Nhập tin nhắn..." 
+          autocomplete="off"
+        />
+        <button class="send-btn" id="send-btn">Send</button>
+      </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+      <div class="status-left">
+        <div class="status-item">
+          <span class="status-indicator"></span>
+          <span>Connected</span>
+        </div>
+        <div class="status-item">
+          <span id="message-count">0 messages</span>
+        </div>
+      </div>
+      <div class="status-right">
+        <span id="status-info">Ready</span>
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module">
+    import { io } from "https://cdn.socket.io/4.4.1/socket.io.esm.min.js";
+
+    const API_KEY = "87aa8f284fb4f6";
+    const SERVER_URL = "http://localhost:3001";
+    const RATE_LIMIT_SECONDS = 10; // Giới hạn gửi tin nhắn mỗi 10 giây
+
+    // DOM Elements
+    const messageInput = document.getElementById('message-input');
+    const sendBtn = document.getElementById('send-btn');
+    const terminalOutput = document.getElementById('terminal-output');
+    const userInfoEl = document.getElementById('user-info');
+    const statusInfo = document.getElementById('status-info');
+    const messageCount = document.getElementById('message-count');
+    const inputWrapper = document.querySelector('.terminal-input-wrapper');
+
+    let currentUser = { ip: '...', city: '...' };
+    let lastMessageTime = 0;
+    let rateLimitTimer = null;
+
+    // Kết nối Socket
+    const socket = io(SERVER_URL);
+
+    // Lấy thông tin IP
+    fetch(`https://ipinfo.io/json?token=${API_KEY}`)
+      .then(res => res.json())
+      .then(data => {
+        currentUser = { 
+          ip: data.ip, 
+          city: data.city || 'Unknown' 
+        };
+        userInfoEl.textContent = `${currentUser.ip} • ${currentUser.city}`;
+        statusInfo.textContent = `IP: ${currentUser.ip}`;
+      })
+      .catch(() => {
+        userInfoEl.textContent = "Anonymous";
+        statusInfo.textContent = "IP: Unknown";
+        currentUser = { ip: 'Anonymous', city: 'Unknown' };
+      });
+
+    // Tự động join global room khi kết nối
+    socket.on('connect', () => {
+      socket.emit('join room', 'global');
+    });
+
+    // Format timestamp: YYYY MM DD, HH MM SS
+    function formatTimestamp(date) {
+      const d = new Date(date);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      const seconds = String(d.getSeconds()).padStart(2, '0');
+      
+      return `${year} ${month} ${day}, ${hours} ${minutes} ${seconds}`;
+    }
+
+    // Hiển thị cảnh báo rate limit
+    function showRateLimitWarning(secondsRemaining) {
+      // Xóa warning cũ nếu có
+      const oldWarning = inputWrapper.querySelector('.rate-limit-warning');
+      if (oldWarning) {
+        oldWarning.remove();
+      }
+
+      // Tạo warning mới
+      const warning = document.createElement('div');
+      warning.className = 'rate-limit-warning';
+      warning.textContent = `Vui lòng đợi ${secondsRemaining} giây`;
+      inputWrapper.style.position = 'relative';
+      inputWrapper.appendChild(warning);
+
+      // Xóa warning sau 3 giây
+      setTimeout(() => {
+        warning.remove();
+      }, 3000);
+    }
+
+    // Kiểm tra rate limit
+    function checkRateLimit() {
+      const now = Date.now();
+      const timeSinceLastMessage = (now - lastMessageTime) / 1000;
+      
+      if (timeSinceLastMessage < RATE_LIMIT_SECONDS) {
+        const secondsRemaining = Math.ceil(RATE_LIMIT_SECONDS - timeSinceLastMessage);
+        showRateLimitWarning(secondsRemaining);
+        return false;
+      }
+      
+      return true;
+    }
+
+    // Cập nhật UI khi đang trong cooldown
+    function updateCooldownUI() {
+      const now = Date.now();
+      const timeSinceLastMessage = (now - lastMessageTime) / 1000;
+      
+      if (timeSinceLastMessage < RATE_LIMIT_SECONDS) {
+        const secondsRemaining = Math.ceil(RATE_LIMIT_SECONDS - timeSinceLastMessage);
+        sendBtn.disabled = true;
+        sendBtn.textContent = `${secondsRemaining}s`;
+        
+        // Tiếp tục cập nhật
+        rateLimitTimer = setTimeout(updateCooldownUI, 100);
+      } else {
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Send';
+        if (rateLimitTimer) {
+          clearTimeout(rateLimitTimer);
+          rateLimitTimer = null;
+        }
+      }
+    }
+
+    // Cập nhật số lượng tin nhắn
+    function updateMessageCount() {
+      const count = terminalOutput.querySelectorAll('.terminal-line').length;
+      messageCount.textContent = `${count} message${count !== 1 ? 's' : ''}`;
+    }
+
+    // Render tin nhắn theo format: YYYY MM DD, HH MM SS | IP: message
+    function renderMessage(data) {
+      const line = document.createElement('div');
+      line.className = 'terminal-line';
+      
+      const timestamp = formatTimestamp(data.timestamp || new Date());
+      
+      line.innerHTML = `<span class="timestamp">${timestamp}</span><span class="separator">|</span><span class="ip">${data.ip}</span>: <span class="message">${data.text}</span>`;
+      
+      // Xóa welcome screen nếu còn
+      const welcomeScreen = terminalOutput.querySelector('.welcome-screen');
+      if (welcomeScreen) {
+        welcomeScreen.remove();
+      }
+
+      terminalOutput.appendChild(line);
+      
+      // Auto scroll
+      terminalOutput.scrollTop = terminalOutput.scrollHeight;
+      
+      // Update count
+      updateMessageCount();
+    }
+
+    // Nhận tin nhắn mới
+    socket.on('chat message', (msg) => {
+      renderMessage(msg);
+    });
+
+    // Nhận lịch sử chat
+    socket.on('history', (msgs) => {
+      terminalOutput.innerHTML = '';
+      
+      if (msgs.length === 0) {
+        const systemMsg = document.createElement('div');
+        systemMsg.className = 'system-message';
+        systemMsg.textContent = 'Global Chat - Chưa có tin nhắn nào';
+        terminalOutput.appendChild(systemMsg);
+      } else {
+        // System message
+        const systemMsg = document.createElement('div');
+        systemMsg.className = 'system-message';
+        systemMsg.textContent = `Global Chat - Đang tải ${msgs.length} tin nhắn`;
+        terminalOutput.appendChild(systemMsg);
+        
+        // Render all messages
+        msgs.forEach(msg => renderMessage(msg));
+      }
+      
+      updateMessageCount();
+    });
+
+    // Gửi tin nhắn
+    function sendMessage() {
+      const text = messageInput.value.trim();
+      
+      if (!text) return;
+      
+      // Kiểm tra rate limit
+      if (!checkRateLimit()) {
+        return;
+      }
+      
+      socket.emit('chat message', {
+        room: 'global',
+        text: text,
+        ip: currentUser.ip,
+        city: currentUser.city,
+        timestamp: new Date().toISOString()
+      });
+      
+      messageInput.value = '';
+      messageInput.focus();
+      
+      // Cập nhật thời gian gửi tin nhắn cuối
+      lastMessageTime = Date.now();
+      updateCooldownUI();
+    }
+
+    // Event listeners
+    messageInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        sendMessage();
+      }
+    });
+
+    sendBtn.addEventListener('click', sendMessage);
+
+    // Focus input khi load
+    messageInput.focus();
+
+  </script>
+
+</body>
+</html>
