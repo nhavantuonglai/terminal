@@ -69,11 +69,15 @@ import '../assets/style.css';
   </div>
 
   <script type="module">
-    import { io } from "https://cdn.socket.io/4.4.1/socket.io.esm.min.js";
-
+i	mport { io } from "https://cdn.socket.io/4.4.1/socket.io.esm.min.js";
     const API_KEY = "87aa8f284fb4f6";
-    const SERVER_URL = "http://localhost:3001";
-    const RATE_LIMIT_SECONDS = 10; // Giới hạn gửi tin nhắn mỗi 10 giây
+
+    // SỬA ĐOẠN NÀY:
+    // Khi chạy dev (npm run dev) thì dùng localhost.
+    // Khi build lên Vercel (production) thì dùng link server thật.
+    const SERVER_URL = "https://te-b1id.onrender.com"; 
+    
+    const RATE_LIMIT_SECONDS = 10;
 
     // DOM Elements
     const messageInput = document.getElementById('message-input');
