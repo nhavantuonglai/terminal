@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terminal Chat - Ẩn Danh</title>
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  
+  <div class="terminal-container">
+    
+    <div class="terminal-header">
+      <div class="terminal-title">
+        <div class="terminal-dots">
+          <div class="dot red"></div>
+          <div class="dot yellow"></div>
+          <div class="dot green"></div>
+        </div>
+        <span class="terminal-name">chat@global</span>
+      </div>
+      <div class="terminal-info" id="top-status">Initializing...</div>
+    </div>
+
+    <div class="terminal-output" id="terminal-output">
+      <div class="welcome-screen">
+        <h2>Global Anonymous Chat</h2>
+        <p>Chào mừng đến với chat ẩn danh toàn cầu<br>
+           Quy tắc: Văn minh, lịch sự, không spam.
+        </p>
+      </div>
+    </div>
+
+    <div class="terminal-input-wrapper">
+      <div class="terminal-input-container">
+        <span class="terminal-prompt">></span>
+        <input 
+          type="text" 
+          id="message-input" 
+          placeholder="Nhập tin nhắn..." 
+          autocomplete="off"
+        />
+        <button class="send-btn" id="send-btn">Send</button>
+      </div>
+    </div>
+    
+    <div class="status-bar">
+      <div class="status-left">
+        <div class="status-item">
+          <span class="status-indicator" id="status-dot"></span>
+          <span id="connection-text">Connecting...</span>
+        </div>
+        <div class="status-item">
+          <span id="message-count">0 messages</span>
+        </div>
+      </div>
+      <div class="status-right">
+        <span id="status-info">Ready</span>
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module">
+      import { ChatTerminal } from './core.js';
+      
+      // Chạy ứng dụng khi tải xong
+      document.addEventListener('DOMContentLoaded', () => {
+          const app = new ChatTerminal();
+          app.init();
+      });
+  </script>
+</body>
+</html>
