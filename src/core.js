@@ -29,13 +29,17 @@ export class ChatTerminal {
     }
 
     async init() {
+        // 1. Lấy thông tin user trước
         await this.fetchUserInfo();
+        // 2. Sau đó mới kết nối socket
         this.connectSocket();
+        // 3. Gắn sự kiện nút bấm
         this.setupEventListeners();
+        // 4. Focus vào ô nhập liệu
         this.elements.input.focus();
     }
 
-    // --- 1. XỬ LÝ USER ---
+    // --- XỬ LÝ USER ---
     async fetchUserInfo() {
         try {
             this.elements.statusInfo.textContent = "Fetching IP...";
@@ -51,9 +55,11 @@ export class ChatTerminal {
         }
     }
 
-    // --- 2. KẾT NỐI SOCKET ---
+    // --- KẾT NỐI SOCKET ---
     connectSocket() {
-        this.socket = io(CONFIG.SERVER_URL, { transports: ['websocket', 'polling'] });
+        this.socket = io(CONFIG.SERVER_URL, { 
+            transports: ['websocket', 'polling'] 
+        });
 
         this.socket.on('connect', () => {
             this.updateStatus('online', 'Connected');
@@ -65,7 +71,6 @@ export class ChatTerminal {
         });
 
         this.socket.on('history', (messages) => {
-            // Xóa cũ, giữ welcome screen
             const welcome = document.querySelector('.welcome-screen');
             this.elements.output.innerHTML = '';
             if (welcome) this.elements.output.appendChild(welcome);
@@ -77,7 +82,6 @@ export class ChatTerminal {
         this.socket.on('chat message', (msg) => this.renderMessage(msg));
     }
 
-    // --- 3. XỬ LÝ GIAO DIỆN ---
     updateStatus(state, text) {
         if (state === 'online') {
             this.elements.statusDot.style.backgroundColor = '#50fa7b';
@@ -114,16 +118,14 @@ export class ChatTerminal {
         return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
 
-    // --- 4. LOGIC ĐẾM NGƯỢC NÚT GỬI ---
-    startButtonCountdown(seconds) {
+    // --- HÀM ĐẾM NGƯỢC (SỬA LỖI TẠI ĐÂY) ---
+    startCooldown(seconds) {
         const btn = this.elements.btn;
         let remaining = seconds;
         
-        // Disable nút và hiện số giây ngay lập tức
         btn.disabled = true;
         btn.textContent = `${remaining}`; 
         
-        // Xóa interval cũ nếu có
         if (this.countdownInterval) clearInterval(this.countdownInterval);
 
         this.countdownInterval = setInterval(() => {
@@ -131,15 +133,14 @@ export class ChatTerminal {
             if (remaining > 0) {
                 btn.textContent = `${remaining}`;
             } else {
-                // Hết giờ
                 clearInterval(this.countdownInterval);
                 btn.disabled = false;
-                btn.textContent = "Send"; // Hoặc "GỬI"
+                btn.textContent = "Send";
             }
         }, 1000);
     }
 
-    // --- 5. GỬI TIN NHẮN ---
+    // --- GỬI TIN NHẮN ---
     sendMessage() {
         const text = this.elements.input.value.trim();
         if (!text) return;
@@ -149,9 +150,8 @@ export class ChatTerminal {
         const timeSinceLast = (now - this.lastMessageTime) / 1000;
 
         if (timeSinceLast < CONFIG.RATE_LIMIT_SECONDS) {
-            // Nếu người dùng cố tình bypass disable bằng cách nhấn Enter
             const remaining = Math.ceil(CONFIG.RATE_LIMIT_SECONDS - timeSinceLast);
-            this.startButtonCountdown(remaining);
+            this.startCooldown(remaining); // Gọi đúng tên hàm
             return;
         }
 
@@ -166,17 +166,26 @@ export class ChatTerminal {
             this.elements.input.focus();
             this.lastMessageTime = now;
             
-            // Kích hoạt đếm ngược nút bấm ngay sau khi gửi thành công
-            this.startButtonCountdown(CONFIG.RATE_LIMIT_SECONDS);
+            // Kích hoạt đếm ngược sau khi gửi
+            this.startCooldown(CONFIG.RATE_LIMIT_SECONDS); // Gọi đúng tên hàm
         } else {
-            alert("Mất kết nối server!");
+            console.log("Socket chưa kết nối hoặc bị ngắt");
+            alert("Đang kết nối lại với máy chủ... vui lòng thử lại sau giây lát.");
         }
     }
 
     setupEventListeners() {
-        this.elements.btn.addEventListener('click', () => this.sendMessage());
+        // Sự kiện Click nút Gửi
+        this.elements.btn.addEventListener('click', (e) => {
+            e.preventDefault(); // Ngăn hành vi mặc định
+            this.sendMessage();
+        });
+
+        // Sự kiện nhấn Enter
         this.elements.input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') this.sendMessage();
+            if (e.key === 'Enter') {
+                this.sendMessage();
+            }
         });
     }
 }

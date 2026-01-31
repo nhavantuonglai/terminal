@@ -474,24 +474,22 @@ body {
   }
 }
 
+/* Thêm vào cuối file style.css */
 
-/* --- THÊM VÀO CUỐI TỆP style.css --- */
-
-/* Ẩn thanh cuộn cho Chrome, Safari, Edge */
+/* Ẩn thanh cuộn */
 .terminal-output::-webkit-scrollbar {
   display: none;
 }
-
-/* Ẩn thanh cuộn cho Firefox, IE */
 .terminal-output {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
-/* Style cho nút Gửi khi bị disable (đếm ngược) */
+/* Style cho nút Gửi khi đang đếm ngược */
 .send-btn:disabled {
-  background-color: #44475a; /* Màu xám tối */
-  color: #f8f8f2;
+  background-color: #44475a;
+  color: #ff5555; /* Số giây đếm ngược màu đỏ */
   cursor: not-allowed;
-  opacity: 0.7;
+  opacity: 0.8;
+  font-weight: bold;
 }

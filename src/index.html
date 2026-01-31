@@ -1,74 +1,238 @@
+<link rel="stylesheet" href="./style.css">
+
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Terminal Chat - Ẩn Danh</title>
-    <link rel="stylesheet" href="./style.css">
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Terminal Chat - Ẩn Danh</title>
 </head>
+
 <body>
-  
-  <div class="terminal-container">
-    
-    <div class="terminal-header">
-      <div class="terminal-title">
-        <div class="terminal-dots">
-          <div class="dot red"></div>
-          <div class="dot yellow"></div>
-          <div class="dot green"></div>
-        </div>
-        <span class="terminal-name">chat@global</span>
-      </div>
-      <div class="terminal-info" id="top-status">Initializing...</div>
-    </div>
+	
+	<div class="terminal-container">
+		
+		<div class="terminal-header">
+			<div class="terminal-title">
+				<div class="terminal-dots">
+					<div class="dot red"></div>
+					<div class="dot yellow"></div>
+					<div class="dot green"></div>
+				</div>
+				<span class="terminal-name" id="room-name">chat@global</span>
+			</div>
+			<div class="terminal-info" id="top-status">Đang kết nối...</div>
+		</div>
 
-    <div class="terminal-output" id="terminal-output">
-      <div class="welcome-screen">
-        <h2>Global Anonymous Chat</h2>
-        <p>Chào mừng đến với chat ẩn danh toàn cầu<br>
-           Quy tắc: Văn minh, lịch sự, không spam.
-        </p>
-      </div>
-    </div>
+		<div class="terminal-output" id="terminal-output">
+			<div class="welcome-screen">
+				<h2>Global Anonymous Chat</h2>
+				<p>Chào mừng đến với chat ẩn danh toàn cầu<br>
+				</p>
+			</div>
+		</div>
 
-    <div class="terminal-input-wrapper">
-      <div class="terminal-input-container">
-        <span class="terminal-prompt">></span>
-        <input 
-          type="text" 
-          id="message-input" 
-          placeholder="Nhập tin nhắn..." 
-          autocomplete="off"
-        />
-        <button class="send-btn" id="send-btn">Send</button>
-      </div>
-    </div>
-    
-    <div class="status-bar">
-      <div class="status-left">
-        <div class="status-item">
-          <span class="status-indicator" id="status-dot"></span>
-          <span id="connection-text">Connecting...</span>
-        </div>
-        <div class="status-item">
-          <span id="message-count">0 messages</span>
-        </div>
-      </div>
-      <div class="status-right">
-        <span id="status-info">Ready</span>
-      </div>
-    </div>
+		<div class="terminal-input-wrapper">
+			<div class="terminal-input-container">
+				<span class="terminal-prompt">></span>
+				<input 
+					type="text" 
+					id="message-input" 
+					placeholder="Nhập tin nhắn..." 
+					autocomplete="off"
+				/>
+				<button class="send-btn" id="send-btn">Gửi</button>
+			</div>
+		</div>
+		
+		<div class="status-bar">
+			<div class="status-left">
+				<div class="status-item">
+					<span class="status-indicator" id="status-dot"></span>
+					<span id="connection-text">Đang kết nối</span>
+				</div>
+				<div class="status-item">
+					<span id="message-count">0 messages</span>
+				</div>
+			</div>
+			<div class="status-right">
+				<span id="status-info">Ready</span>
+			</div>
+		</div>
 
-  </div>
+	</div>
 
-  <script type="module">
-      import { ChatTerminal } from './core.js';
-      
-      // Chạy ứng dụng khi tải xong
-      document.addEventListener('DOMContentLoaded', () => {
-          const app = new ChatTerminal();
-          app.init();
-      });
-  </script>
+	<script type="module">
+		import { io } from "https://cdn.socket.io/4.4.1/socket.io.esm.min.js";
+
+		// --- CẤU HÌNH ---
+		const CONFIG = {
+				SERVER_URL: "https://te-b1id.onrender.com", // Link server của bạn
+				API_KEY: "87aa8f284fb4f6", // IPInfo Token
+				RATE_LIMIT_SECONDS: 10
+		};
+
+		// --- KHAI BÁO BIẾN ---
+		let socket;
+		let currentUser = { ip: '...', city: 'Unknown' };
+		let lastMessageTime = 0;
+		let currentMessageCount = 0;
+
+		// --- LẤY DOM ELEMENTS (Khớp với HTML của bạn) ---
+		const elements = {
+				input: document.getElementById('message-input'),
+				btn: document.getElementById('send-btn'),
+				output: document.getElementById('terminal-output'),
+				
+				// Status Bar Elements
+				statusDot: document.getElementById('status-dot'),
+				connectionText: document.getElementById('connection-text'),
+				messageCount: document.getElementById('message-count'),
+				statusInfo: document.getElementById('status-info'),
+				topStatus: document.getElementById('top-status'),
+				inputWrapper: document.querySelector('.terminal-input-wrapper')
+		};
+
+		// --- 1. XỬ LÝ NGƯỜI DÙNG (Lấy IP) ---
+		async function fetchUserInfo() {
+				try {
+						elements.statusInfo.textContent = "Fetching IP...";
+						const res = await fetch(`https://ipinfo.io/json?token=${CONFIG.API_KEY}`);
+						const data = await res.json();
+						
+						currentUser = { ip: data.ip, city: data.city || 'Unknown' };
+						
+						// Cập nhật giao diện đúng chỗ bạn muốn
+						elements.statusInfo.textContent = `${currentUser.ip} • ${currentUser.city}`;
+						elements.topStatus.textContent = "Secure Connection";
+						
+				} catch (e) {
+						console.error(e);
+						elements.statusInfo.textContent = 'Anonymous User';
+				}
+		}
+
+		// --- 2. XỬ LÝ GIAO DIỆN ---
+		function scrollToBottom() {
+				elements.output.scrollTop = elements.output.scrollHeight;
+		}
+
+		function escapeHtml(text) {
+				if (!text) return "";
+				return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+		}
+
+		function renderMessage(msg) {
+				const div = document.createElement('div');
+				div.className = 'message-line';
+				
+				// Format thời gian
+				const date = new Date(msg.timestamp);
+				const timeStr = date.toLocaleTimeString('vi-VN', { hour12: false });
+				
+				// Cấu trúc tin nhắn hiển thị
+				div.innerHTML = `
+						<span class="timestamp">[${timeStr}]</span>
+						<span class="user-info">${msg.ip} (${msg.city}):</span>
+						<span class="message-content">${escapeHtml(msg.text)}</span>
+				`;
+				
+				elements.output.appendChild(div);
+				scrollToBottom();
+				
+				currentMessageCount++;
+				elements.messageCount.textContent = `${currentMessageCount} messages`;
+		}
+
+		function showCooldownWarning(remaining) {
+				const old = document.querySelector('.rate-limit-warning');
+				if (old) old.remove();
+
+				const warning = document.createElement('div');
+				warning.className = 'rate-limit-warning';
+				warning.style.color = '#ff5555';
+				warning.style.fontSize = '12px';
+				warning.style.marginTop = '4px';
+				warning.textContent = `Vui lòng đợi ${remaining}s...`;
+				
+				elements.inputWrapper.appendChild(warning);
+				setTimeout(() => warning.remove(), 2000);
+		}
+
+		function sendMessage() {
+				const text = elements.input.value.trim();
+				if (!text) return;
+
+				const now = Date.now();
+				const timeSinceLast = (now - lastMessageTime);
+				
+				if (timeSinceLast < CONFIG.RATE_LIMIT_SECONDS) {
+						const remaining = Math.ceil(CONFIG.RATE_LIMIT_SECONDS - timeSinceLast);
+						showCooldownWarning(remaining);
+						return;
+				}
+
+				if (socket && socket.connected) {
+						socket.emit('chat message', {
+								text: text,
+								ip: currentUser.ip,
+								city: currentUser.city
+						});
+
+						elements.input.value = '';
+						elements.input.focus();
+						lastMessageTime = now;
+				} else {
+						alert("Đang mất kết nối tới máy chủ!");
+				}
+		}
+
+		function initApp() {
+				fetchUserInfo();
+
+				socket = io(CONFIG.SERVER_URL, {
+						transports: ['websocket', 'polling']
+				});
+
+				socket.on('connect', () => {
+						elements.statusDot.style.backgroundColor = '#50fa7b';
+						elements.statusDot.style.boxShadow = '0 0 5px #50fa7b';
+						elements.connectionText.textContent = 'Connected';
+						
+						socket.emit('join room', 'global');
+				});
+
+				socket.on('disconnect', () => {
+						elements.statusDot.style.backgroundColor = '#ff5555'; // Đỏ
+						elements.statusDot.style.boxShadow = 'none';
+						elements.connectionText.textContent = 'Disconnected';
+				});
+
+				socket.on('history', (messages) => {
+						const welcome = document.querySelector('.welcome-screen');
+						elements.output.innerHTML = '';
+						if(welcome) elements.output.appendChild(welcome);
+						
+						currentMessageCount = 0;
+						messages.forEach(msg => renderMessage(msg));
+				});
+
+				socket.on('chat message', (msg) => renderMessage(msg));
+
+				elements.btn.addEventListener('click', sendMessage);
+
+				elements.input.addEventListener('keydown', (e) => {
+						if (e.key === 'Enter') {
+								sendMessage();
+						}
+				});
+
+				elements.input.focus();
+		}
+
+		initApp();
+
+	</script>
 </body>
 </html>
